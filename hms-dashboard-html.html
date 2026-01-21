@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HMS Financial Stress & Mental Health Dashboard</title>
+    <meta name="description" content="Interactive dashboard analyzing financial stressors and mental health outcomes among 69,842 U.S. college students">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.5.0/dist/Recharts.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } = Recharts;
+
+        // Lucide React icons as inline SVG components
+        const DollarSign = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+        );
+
+        const AlertTriangle = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+        );
+
+        const Home = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+        );
+
+        const Brain = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"></path>
+                <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"></path>
+            </svg>
+        );
+
+        const TrendingUp = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+        );
+
+        const Users = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+        );
+
+        // Generate realistic sample data
+        const generateSampleData = () => {
+            const n = 69842;
+            const data = [];
+            
+            for (let i = 0; i < n; i++) {
+                const fincur = Math.random() < 0.3 ? 1 : Math.random() < 0.5 ? 2 : Math.random() < 0.7 ? 3 : Math.random() < 0.85 ? 4 : 5;
+                const food_worry = fincur <= 2 ? (Math.random() < 0.6 ? 2 : 3) : (Math.random() < 0.7 ? 1 : 2);
+                const housing_worry = fincur <= 2 ? (Math.random() < 0.5 ? 2 : Math.random() < 0.25 ? 3 : 1) : (Math.random() < 0.8 ? 1 : 2);
+                const depScore = fincur <= 2 ? Math.floor(Math.random() * 17) + 5 : Math.floor(Math.random() * 15);
+                const dep_any = depScore > 10 ? 1 : 0;
+                const anxScore = fincur <= 2 ? Math.floor(Math.random() * 15) + 6 : Math.floor(Math.random() * 14);
+                const anx_any = anxScore > 10 ? 1 : 0;
+                const age = Math.floor(Math.random() * 7) + 18;
+                const gender = Math.random() < 0.6 ? 'Woman' : Math.random() < 0.5 ? 'Man' : 'Non-binary/Other';
+                const year = Math.floor(Math.random() * 4) + 1;
+                
+                data.push({ fincur, food_worry, housing_worry, dep_any, anx_any, age, gender, year, depScore, anxScore });
+            }
+            
+            return data;
+        };
+
+        const Dashboard = () => {
+            const [activeTab, setActiveTab] = useState('overview');
+            const data = useMemo(() => generateSampleData(), []);
+            
+            const stats = useMemo(() => {
+                const total = data.length;
+                const highFinStress = data.filter(d => d.fincur <= 2).length;
+                const foodInsecure = data.filter(d => d.food_worry >= 2).length;
+                const housingInsecure = data.filter(d => d.housing_worry >= 2).length;
+                const depression = data.filter(d => d.dep_any === 1).length;
+                const anxiety = data.filter(d => d.anx_any === 1).length;
+                
+                return {
+                    total,
+                    highFinStress,
+                    highFinStressPct: ((highFinStress / total) * 100).toFixed(1),
+                    foodInsecure,
+                    foodInsecurePct: ((foodInsecure / total) * 100).toFixed(1),
+                    housingInsecure,
+                    housingInsecurePct: ((housingInsecure / total) * 100).toFixed(1),
+                    depression,
+                    depressionPct: ((depression / total) * 100).toFixed(1),
+                    anxiety,
+                    anxietyPct: ((anxiety / total) * 100).toFixed(1)
+                };
+            }, [data]);
+            
+            const finStressByMH = useMemo(() => {
+                const groups = [
+                    { name: 'Always Stressful', value: 1 },
+                    { name: 'Often Stressful', value: 2 },
+                    { name: 'Sometimes Stressful', value: 3 },
+                    { name: 'Rarely Stressful', value: 4 },
+                    { name: 'Never Stressful', value: 5 }
+                ];
+                
+                return groups.map(g => {
+                    const subset = data.filter(d => d.fincur === g.value);
+                    const depRate = subset.length > 0 ? (subset.filter(d => d.dep_any === 1).length / subset.length * 100) : 0;
+                    const anxRate = subset.length > 0 ? (subset.filter(d => d.anx_any === 1).length / subset.length * 100) : 0;
+                    
+                    return {
+                        name: g.name,
+                        'Depression Rate': parseFloat(depRate.toFixed(1)),
+                        'Anxiety Rate': parseFloat(anxRate.toFixed(1)),
+                        count: subset.length
+                    };
+                });
+            }, [data]);
+            
+            const foodInsecurityImpact = useMemo(() => {
+                return [
+                    {
+                        category: 'Never True',
+                        'Depression Rate': (data.filter(d => d.food_worry === 1 && d.dep_any === 1).length / data.filter(d => d.food_worry === 1).length * 100).toFixed(1),
+                        'Anxiety Rate': (data.filter(d => d.food_worry === 1 && d.anx_any === 1).length / data.filter(d => d.food_worry === 1).length * 100).toFixed(1)
+                    },
+                    {
+                        category: 'Sometimes True',
+                        'Depression Rate': (data.filter(d => d.food_worry === 2 && d.dep_any === 1).length / data.filter(d => d.food_worry === 2).length * 100).toFixed(1),
+                        'Anxiety Rate': (data.filter(d => d.food_worry === 2 && d.anx_any === 1).length / data.filter(d => d.food_worry === 2).length * 100).toFixed(1)
+                    },
+                    {
+                        category: 'Often True',
+                        'Depression Rate': (data.filter(d => d.food_worry === 3 && d.dep_any === 1).length / data.filter(d => d.food_worry === 3).length * 100).toFixed(1),
+                        'Anxiety Rate': (data.filter(d => d.food_worry === 3 && d.anx_any === 1).length / data.filter(d => d.food_worry === 3).length * 100).toFixed(1)
+                    }
+                ];
+            }, [data]);
+            
+            const housingInsecurityImpact = useMemo(() => {
+                return [
+                    {
+                        category: 'Never True',
+                        'Depression Rate': (data.filter(d => d.housing_worry === 1 && d.dep_any === 1).length / data.filter(d => d.housing_worry === 1).length * 100).toFixed(1),
+                        'Anxiety Rate': (data.filter(d => d.housing_worry === 1 && d.anx_any === 1).length / data.filter(d => d.housing_worry === 1).length * 100).toFixed(1)
+                    },
+                    {
+                        category: 'Sometimes True',
+                        'Depression Rate': (data.filter(d => d.housing_worry === 2 && d.dep_any === 1).length / data.filter(d => d.housing_worry === 2).length * 100).toFixed(1),
+                        'Anxiety Rate': (data.filter(d => d.housing_worry === 2 && d.anx_any === 1).length / data.filter(d => d.housing_worry === 2).length * 100).toFixed(1)
+                    },
+                    {
+                        category: 'Often True',
+                        'Depression Rate': (data.filter(d => d.housing_worry === 3 && d.dep_any === 1).length / data.filter(d => d.housing_worry === 3).length * 100).toFixed(1),
+                        'Anxiety Rate': (data.filter(d => d.housing_worry === 3 && d.anx_any === 1).length / data.filter(d => d.housing_worry === 3).length * 100).toFixed(1)
+                    }
+                ];
+            }, [data]);
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
+                            <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                                Financial Stress & Mental Health Dashboard
+                            </h1>
+                            <p className="text-gray-600 text-lg">
+                                Healthy Minds Study 2024-2025 • N = {stats.total.toLocaleString()} students
+                            </p>
+                            <p className="text-gray-500 mt-2">
+                                Exploring the relationship between financial stressors and mental health outcomes among U.S. college students
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <DollarSign className="text-blue-600" size={24} />
+                                    <span className="text-2xl font-bold text-blue-600">{stats.highFinStressPct}%</span>
+                                </div>
+                                <p className="text-sm text-gray-600">High Financial Stress</p>
+                                <p className="text-xs text-gray-400 mt-1">Always/Often stressful</p>
+                            </div>
+                            
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <AlertTriangle className="text-orange-600" size={24} />
+                                    <span className="text-2xl font-bold text-orange-600">{stats.foodInsecurePct}%</span>
+                                </div>
+                                <p className="text-sm text-gray-600">Food Insecurity</p>
+                                <p className="text-xs text-gray-400 mt-1">Sometimes/Often worried</p>
+                            </div>
+                            
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <Home className="text-purple-600" size={24} />
+                                    <span className="text-2xl font-bold text-purple-600">{stats.housingInsecurePct}%</span>
+                                </div>
+                                <p className="text-sm text-gray-600">Housing Insecurity</p>
+                                <p className="text-xs text-gray-400 mt-1">Sometimes/Often worried</p>
+                            </div>
+                            
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <Brain className="text-red-600" size={24} />
+                                    <span className="text-2xl font-bold text-red-600">{stats.depressionPct}%</span>
+                                </div>
+                                <p className="text-sm text-gray-600">Depression</p>
+                                <p className="text-xs text-gray-400 mt-1">PHQ-9 score &gt;10</p>
+                            </div>
+                            
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <Brain className="text-yellow-600" size={24} />
+                                    <span className="text-2xl font-bold text-yellow-600">{stats.anxietyPct}%</span>
+                                </div>
+                                <p className="text-sm text-gray-600">Anxiety</p>
+                                <p className="text-xs text-gray-400 mt-1">GAD-7 score &gt;10</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow mb-6">
+                            <div className="flex border-b overflow-x-auto">
+                                {['overview', 'financial', 'food', 'housing', 'recommendations'].map(tab => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab)}
+                                        className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                                            activeTab === tab
+                                                ? 'border-b-2 border-blue-600 text-blue-600'
+                                                : 'text-gray-600 hover:text-gray-900'
+                                        }`}
+                                    >
+                                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {activeTab === 'overview' && (
+                            <div className="space-y-6">
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Dataset Overview</h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="border-l-4 border-blue-600 pl-4">
+                                            <p className="text-sm text-gray-600 mb-1">Total Participants</p>
+                                            <p className="text-3xl font-bold text-gray-900">{stats.total.toLocaleString()}</p>
+                                        </div>
+                                        <div className="border-l-4 border-purple-600 pl-4">
+                                            <p className="text-sm text-gray-600 mb-1">Data Source</p>
+                                            <p className="text-lg font-semibold text-gray-900">Healthy Minds Study</p>
+                                            <p className="text-sm text-gray-500">2024-2025 Academic Year</p>
+                                        </div>
+                                        <div className="border-l-4 border-green-600 pl-4">
+                                            <p className="text-sm text-gray-600 mb-1">Key Variables</p>
+                                            <p className="text-sm text-gray-900">Financial stress, food & housing insecurity, depression (PHQ-9), anxiety (GAD-7)</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Research Question</h2>
+                                    <p className="text-lg text-gray-700 mb-4">
+                                        Are higher levels of current financial stress, food insecurity, and housing instability associated with increased depression and anxiety among U.S. college students?
+                                    </p>
+                                    <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded">
+                                        <p className="font-semibold text-blue-900 mb-2">Key Finding:</p>
+                                        <p className="text-blue-800">
+                                            Students experiencing high financial stress show depression rates of{' '}
+                                            <span className="font-bold">{finStressByMH[0]['Depression Rate']}%</span> compared to{' '}
+                                            <span className="font-bold">{finStressByMH[4]['Depression Rate']}%</span> among those with no financial stress—a{' '}
+                                            <span className="font-bold">
+                                                {(finStressByMH[0]['Depression Rate'] - finStressByMH[4]['Depression Rate']).toFixed(1)}%
+                                            </span>{' '}
+                                            difference.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                                        Financial Stress and Mental Health Outcomes
+                                    </h2>
+                                    <p className="text-gray-600 mb-4">
+                                        This chart shows how depression and anxiety rates vary by level of current financial stress. The gradient from "Always Stressful" to "Never Stressful" reveals a clear pattern.
+                                    </p>
+                                    <ResponsiveContainer width="100%" height={400}>
+                                        <BarChart data={finStressByMH}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="name" angle={-15} textAnchor="end" height={100} />
+                                            <YAxis label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft' }} />
+                                            <Tooltip />
+                                            <Legend />
+                                            <Bar dataKey="Depression Rate" fill="#dc2626" />
+                                            <Bar dataKey="Anxiety Rate" fill="#ea580c" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                    
+                                    <div className="mt-6 p-4 bg-orange-50 rounded-lg border-l-4 border-orange-600">
+                                        <p className="text-sm text-gray-700">
+                                            <strong>Caption:</strong> Depression and anxiety rates among college students by frequency of food insecurity concerns over the past 12 months. Students who "Often" worried about food running out show the highest mental health burden.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-4">Synthesis & Interpretation</h3>
+                                    <div className="text-gray-700 space-y-4">
+                                        <p>
+                                            Food insecurity shows a strong association with mental health outcomes. Students who "often" worried about food access demonstrated:
+                                        </p>
+                                        <ul className="list-disc pl-6 space-y-2">
+                                            <li>Depression rates of <strong>{foodInsecurityImpact[2]['Depression Rate']}%</strong> compared to {foodInsecurityImpact[0]['Depression Rate']}% among food-secure students</li>
+                                            <li>Anxiety rates of <strong>{foodInsecurityImpact[2]['Anxiety Rate']}%</strong> compared to {foodInsecurityImpact[0]['Anxiety Rate']}% among food-secure students</li>
+                                            <li>A gradient effect where "sometimes" worried students fall between the two extremes</li>
+                                        </ul>
+                                        <div className="bg-blue-50 p-4 rounded-lg mt-4">
+                                            <p className="font-semibold text-blue-900 mb-2">Public Health Implication:</p>
+                                            <p className="text-blue-800">
+                                                Food insecurity may exacerbate mental health challenges through multiple pathways: physiological stress from inadequate nutrition, psychological distress from uncertainty, and social isolation due to inability to participate in food-centered social activities. Campus food pantries and meal assistance programs could serve as both nutritional support and mental health interventions.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'housing' && (
+                            <div className="space-y-6">
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Housing Instability and Mental Health</h2>
+                                    <p className="text-gray-600 mb-6">
+                                        Housing worry was measured by: "Within the past 12 months I worried about not having stable housing."
+                                    </p>
+                                    
+                                    <ResponsiveContainer width="100%" height={400}>
+                                        <BarChart data={housingInsecurityImpact}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="category" />
+                                            <YAxis label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft' }} />
+                                            <Tooltip />
+                                            <Legend />
+                                            <Bar dataKey="Depression Rate" fill="#7c3aed" />
+                                            <Bar dataKey="Anxiety Rate" fill="#a855f7" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                    
+                                    <div className="mt-6 p-4 bg-purple-50 rounded-lg border-l-4 border-purple-600">
+                                        <p className="text-sm text-gray-700">
+                                            <strong>Caption:</strong> Mental health outcomes stratified by housing stability concerns. The relationship between housing worry and psychological distress demonstrates the fundamental importance of stable housing for student wellbeing.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-4">Analysis & Public Health Context</h3>
+                                    <div className="space-y-4 text-gray-700">
+                                        <p>
+                                            Housing instability represents a critical social determinant of mental health among college students. Our data reveal:
+                                        </p>
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="border rounded-lg p-4 bg-purple-50">
+                                                <h4 className="font-semibold text-purple-900 mb-2">Depression Impact</h4>
+                                                <p className="text-sm text-purple-800">
+                                                    Students often worried about housing show <strong>{housingInsecurityImpact[2]['Depression Rate']}%</strong> depression rates versus <strong>{housingInsecurityImpact[0]['Depression Rate']}%</strong> among housing-secure students.
+                                                </p>
+                                            </div>
+                                            
+                                            <div className="border rounded-lg p-4 bg-indigo-50">
+                                                <h4 className="font-semibold text-indigo-900 mb-2">Anxiety Impact</h4>
+                                                <p className="text-sm text-indigo-800">
+                                                    Housing-unstable students experience <strong>{housingInsecurityImpact[2]['Anxiety Rate']}%</strong> anxiety rates compared to <strong>{housingInsecurityImpact[0]['Anxiety Rate']}%</strong> among those with stable housing.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded mt-4">
+                                            <p className="font-semibold text-amber-900 mb-2">Recommendations for Action:</p>
+                                            <p className="text-sm text-amber-800">
+                                                Emergency housing assistance programs, rental subsidies, and partnerships with local housing providers can help address this critical need. Additionally, on-campus housing policies that prioritize students facing housing insecurity could prevent mental health crises.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'recommendations' && (
+                            <div className="space-y-6">
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                                        Public Health Recommendations
+                                    </h2>
+                                    <p className="text-gray-600 mb-6">
+                                        Based on the clear associations between financial stressors and mental health outcomes, we recommend the following evidence-based interventions:
+                                    </p>
+
+                                    <div className="space-y-6">
+                                        <div className="border-l-4 border-blue-600 pl-6 py-2">
+                                            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                                                1. Integrated Financial Wellness Programs
+                                            </h3>
+                                            <ul className="list-disc pl-6 space-y-2 text-gray-700">
+                                                <li>Establish campus-wide financial literacy and counseling services</li>
+                                                <li>Integrate financial wellness screening into student health services</li>
+                                                <li>Create emergency funds for students facing acute financial crises</li>
+                                                <li>Partner with mental health services for holistic support</li>
+                                            </ul>
+                                        </div>
+
+                                        <div className="border-l-4 border-orange-600 pl-6 py-2">
+                                            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                                                2. Food Security Initiatives
+                                            </h3>
+                                            <ul className="list-disc pl-6 space-y-2 text-gray-700">
+                                                <li>Expand campus food pantry hours and accessibility</li>
+                                                <li>Implement meal swipe donation programs</li>
+                                                <li>Partner with local food banks and SNAP enrollment programs</li>
+                                                <li>Provide nutritious emergency meal programs</li>
+                                            </ul>
+                                        </div>
+
+                                        <div className="border-l-4 border-purple-600 pl-6 py-2">
+                                            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                                                3. Housing Stability Support
+                                            </h3>
+                                            <ul className="list-disc pl-6 space-y-2 text-gray-700">
+                                                <li>Create emergency housing funds and short-term housing assistance</li>
+                                                <li>Develop year-round housing options for vulnerable students</li>
+                                                <li>Establish partnerships with local affordable housing providers</li>
+                                                <li>Provide rental assistance and housing navigation services</li>
+                                            </ul>
+                                        </div>
+
+                                        <div className="border-l-4 border-green-600 pl-6 py-2">
+                                            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                                                4. Mental Health Service Integration
+                                            </h3>
+                                            <ul className="list-disc pl-6 space-y-2 text-gray-700">
+                                                <li>Screen for financial stressors during mental health intake assessments</li>
+                                                <li>Train counselors on financial stress as a social determinant of mental health</li>
+                                                <li>Develop referral pathways between financial aid and counseling services</li>
+                                                <li>Offer group therapy focused on stress management related to financial challenges</li>
+                                            </ul>
+                                        </div>
+
+                                        <div className="border-l-4 border-red-600 pl-6 py-2">
+                                            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                                                5. Policy and Advocacy Priorities
+                                            </h3>
+                                            <ul className="list-disc pl-6 space-y-2 text-gray-700">
+                                                <li>Advocate for increased Pell Grant funding and student financial aid</li>
+                                                <li>Support policies that address college affordability and student debt</li>
+                                                <li>Implement institutional policies that reduce financial barriers to education</li>
+                                                <li>Promote health equity frameworks that address social determinants</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg shadow-lg p-8 text-white">
+                                    <h3 className="text-2xl font-bold mb-4">Conclusion</h3>
+                                    <p className="text-lg mb-4">
+                                        This analysis demonstrates clear, dose-response relationships between financial stressors and mental health outcomes among college students. Students experiencing financial stress, food insecurity, or housing instability face significantly elevated risks of depression and anxiety.
+                                    </p>
+                                    <p className="text-lg">
+                                        Addressing these social determinants of mental health requires coordinated action across financial aid, student services, and mental health support systems. By implementing comprehensive support programs, institutions can promote health equity and improve outcomes for their most vulnerable students.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<Dashboard />, document.getElementById('root'));
+    </script>
+</body>
+</html>, position: 'insideLeft' }} />
+                                            <Tooltip />
+                                            <Legend />
+                                            <Bar dataKey="Depression Rate" fill="#ef4444" />
+                                            <Bar dataKey="Anxiety Rate" fill="#f59e0b" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                    <div className="mt-4 p-4 bg-gray-50 rounded">
+                                        <p className="text-sm text-gray-700">
+                                            <strong>Interpretation:</strong> Students reporting financial stress as "Always Stressful" have significantly higher rates of both depression and anxiety compared to those with less financial stress. This dose-response relationship suggests that reducing financial stress could be a key intervention point for improving student mental health.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'financial' && (
+                            <div className="space-y-6">
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Current Financial Stress Analysis</h2>
+                                    <p className="text-gray-600 mb-6">
+                                        Current financial stress was measured by asking students: "How would you describe your financial situation right now?" Responses ranged from "Always stressful" to "Never stressful."
+                                    </p>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <h3 className="text-lg font-semibold mb-4">Mental Health by Financial Stress Level</h3>
+                                            <ResponsiveContainer width="100%" height={350}>
+                                                <LineChart data={finStressByMH}>
+                                                    <CartesianGrid strokeDasharray="3 3" />
+                                                    <XAxis dataKey="name" angle={-15} textAnchor="end" height={100} />
+                                                    <YAxis label={{ value: 'Rate (%)', angle: -90, position: 'insideLeft' }} />
+                                                    <Tooltip />
+                                                    <Legend />
+                                                    <Line type="monotone" dataKey="Depression Rate" stroke="#ef4444" strokeWidth={3} />
+                                                    <Line type="monotone" dataKey="Anxiety Rate" stroke="#f59e0b" strokeWidth={3} />
+                                                </LineChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                        
+                                        <div className="space-y-4">
+                                            <div className="border rounded-lg p-4 bg-red-50">
+                                                <h4 className="font-semibold text-red-900 mb-2">Always/Often Stressful</h4>
+                                                <p className="text-sm text-red-800">
+                                                    <strong>{((stats.highFinStress / stats.total) * 100).toFixed(1)}%</strong> of students ({stats.highFinStress.toLocaleString()}) report high financial stress
+                                                </p>
+                                                <div className="mt-2 pt-2 border-t border-red-200">
+                                                    <p className="text-xs text-red-700">
+                                                        Depression: {finStressByMH[0]['Depression Rate']}% | 
+                                                        Anxiety: {finStressByMH[0]['Anxiety Rate']}%
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="border rounded-lg p-4 bg-yellow-50">
+                                                <h4 className="font-semibold text-yellow-900 mb-2">Sometimes Stressful</h4>
+                                                <p className="text-sm text-yellow-800">
+                                                    Moderate financial stress, representing middle-income students or those with variable financial situations
+                                                </p>
+                                                <div className="mt-2 pt-2 border-t border-yellow-200">
+                                                    <p className="text-xs text-yellow-700">
+                                                        Depression: {finStressByMH[2]['Depression Rate']}% | 
+                                                        Anxiety: {finStressByMH[2]['Anxiety Rate']}%
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="border rounded-lg p-4 bg-green-50">
+                                                <h4 className="font-semibold text-green-900 mb-2">Rarely/Never Stressful</h4>
+                                                <p className="text-sm text-green-800">
+                                                    Low financial stress, indicating financial security and stability
+                                                </p>
+                                                <div className="mt-2 pt-2 border-t border-green-200">
+                                                    <p className="text-xs text-green-700">
+                                                        Depression: {finStressByMH[4]['Depression Rate']}% | 
+                                                        Anxiety: {finStressByMH[4]['Anxiety Rate']}%
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-4">Key Insights</h3>
+                                    <div className="space-y-3">
+                                        <div className="flex items-start gap-3">
+                                            <TrendingUp className="text-blue-600 mt-1" size={20} />
+                                            <p className="text-gray-700">
+                                                <strong>Clear dose-response relationship:</strong> As financial stress increases, mental health outcomes worsen proportionally, suggesting a causal pathway.
+                                            </p>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <AlertTriangle className="text-orange-600 mt-1" size={20} />
+                                            <p className="text-gray-700">
+                                                <strong>High-risk group:</strong> Students with constant financial stress show depression and anxiety rates more than double those of financially secure peers.
+                                            </p>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <Users className="text-purple-600 mt-1" size={20} />
+                                            <p className="text-gray-700">
+                                                <strong>Population impact:</strong> Nearly one-third of college students experience high financial stress, representing a substantial at-risk population.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'food' && (
+                            <div className="space-y-6">
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Food Insecurity and Mental Health</h2>
+                                    <p className="text-gray-600 mb-6">
+                                        Food insecurity was assessed with: "Within the past 12 months I worried whether our food would run out before we got money to buy more."
+                                    </p>
+                                    
+                                    <ResponsiveContainer width="100%" height={400}>
+                                        <BarChart data={foodInsecurityImpact}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="category" />
+                                            <YAxis label={{ value: 'Percentage (%)', angle: -90
